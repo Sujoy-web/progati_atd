@@ -7,8 +7,16 @@ export default function HolidayForm({ sessions, addHoliday, loading }) {
   const [endDate, setEndDate] = useState("");
 
   const handleSubmit = () => {
-    addHoliday({ session: sessionSel, name: holidayName, start: startDate, end: endDate });
-    setHolidayName(""); setStartDate(""); setEndDate(""); setSessionSel("");
+    addHoliday({
+      session: sessionSel,
+      name: holidayName,
+      start: startDate,
+      end: endDate,
+    });
+    setHolidayName("");
+    setStartDate("");
+    setEndDate("");
+    setSessionSel("");
   };
 
   return (
@@ -18,32 +26,61 @@ export default function HolidayForm({ sessions, addHoliday, loading }) {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Session</label>
-          <select value={sessionSel} onChange={e => setSessionSel(e.target.value)}
-            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Session
+          </label>
+          <select
+            value={sessionSel}
+            onChange={(e) => setSessionSel(e.target.value)}
+            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"
+          >
             <option value="">Select Session</option>
-            {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+            {sessions.map((s) => (
+              <option key={s.id || s} value={s.id || s}>
+                {s.name || s}
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Holiday Name</label>
-          <input value={holidayName} onChange={e => setHolidayName(e.target.value)}
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Holiday Name
+          </label>
+          <input
+            value={holidayName}
+            onChange={(e) => setHolidayName(e.target.value)}
             placeholder="Enter holiday name"
-            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"/>
+            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"
+          />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Start Date</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"/>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Start Date
+          </label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"
+          />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">End Date</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"/>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            End Date
+          </label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full p-2.5 rounded bg-gray-700 border border-gray-600 text-white"
+          />
         </div>
       </div>
-      <button onClick={handleSubmit} disabled={loading}
-        className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 py-2.5 px-5 rounded font-medium text-sm w-full md:w-auto">
+      <button
+        onClick={handleSubmit}
+        disabled={loading}
+        className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 py-2.5 px-5 rounded font-medium text-sm w-full md:w-auto"
+      >
         Add Holiday
       </button>
     </div>

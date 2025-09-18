@@ -1,12 +1,10 @@
 // pages/AttendanceTimeSetup.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
+
 import SetupList from "../components/AttendanceTimeSetup/SetupList";
 import FinalSchedule from "../components/AttendanceTimeSetup/FinalSchedule";
 import SetupActions from "../components/AttendanceTimeSetup/SetupActions";
-import { StatusMessage } from "../Components/YearPlanner/StatusMessage";
-import { loadData } from "../utils/storage";
 
-const STORAGE_KEY = "holidaysData";
 const weekDays = [
   "Monday",
   "Tuesday",
@@ -26,29 +24,15 @@ const availableClasses = [
   "Class 6",
 ];
 
-function AttendanceTimeSetupPage() {
+ function AttendanceTimeSetupPage() {
   const [setups, setSetups] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showClassDropdowns, setShowClassDropdowns] = useState({});
   const [searchDates, setSearchDates] = useState({});
   const [duplicatedRows, setDuplicatedRows] = useState({});
-  const [holidays, setHolidays] = useState([]);
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
 
-  // Load holidays from localStorage
-  useEffect(() => {
-    const holidayData = loadData(STORAGE_KEY) || [];
-    setHolidays(holidayData.filter(h => h.active));
-  }, []);
-
-  const showStatus = (msg, type) => {
-    setStatus({ msg, type });
-    setTimeout(() => setStatus(null), 3000);
-  };
-
-  const toggleClassDropdown = (setupIndex) => {
+   const toggleClassDropdown = (setupIndex) => {
     setShowClassDropdowns((prev) => ({
       ...prev,
       [setupIndex]: !prev[setupIndex],
@@ -69,7 +53,6 @@ function AttendanceTimeSetupPage() {
         expanded: true,
       },
     ]);
-    showStatus("New setup added", "success");
   };
 
   const updateSetupName = (setupIndex, name) => {
@@ -115,7 +98,6 @@ function AttendanceTimeSetupPage() {
       };
       return updated;
     });
-    showStatus("All classes selected", "success");
   };
 
   const deselectAllClasses = (setupIndex) => {
@@ -127,7 +109,6 @@ function AttendanceTimeSetupPage() {
       };
       return updated;
     });
-    showStatus("All classes deselected", "success");
   };
 
   const handleSearchChange = (setupId, value) => {
@@ -155,7 +136,7 @@ function AttendanceTimeSetupPage() {
         !setup.toDate ||
         setup.selectedClasses.length === 0
       ) {
-        showStatus("Please select classes and dates first!", "error");
+        alert("Please select classes and dates first!");
         return prev;
       }
 
@@ -173,7 +154,6 @@ function AttendanceTimeSetupPage() {
       updated[setupIndex] = setup;
       return updated;
     });
-    showStatus("Rules generated successfully", "success");
   };
 
   const handleRuleChange = (setupIndex, dayIndex, field, value) => {
@@ -213,8 +193,6 @@ function AttendanceTimeSetupPage() {
       ...prev,
       [newRow.id]: true
     }));
-    
-    showStatus(`Date duplicated for ${className}`, "success");
   };
 
   const deleteDuplicatedRow = (id) => {
@@ -224,7 +202,6 @@ function AttendanceTimeSetupPage() {
       delete updated[id];
       return updated;
     });
-    showStatus("Duplicated row deleted", "success");
   };
 
   const handleDuplicatedDateChange = (index, value) => {
@@ -235,16 +212,6 @@ function AttendanceTimeSetupPage() {
         date: value 
       };
       return updated;
-    });
-  };
-
-  // Check if a date falls within any active holiday
-  const isHoliday = (date) => {
-    const currentDate = new Date(date);
-    return holidays.some(holiday => {
-      const startDate = new Date(holiday.start);
-      const endDate = new Date(holiday.end);
-      return currentDate >= startDate && currentDate <= endDate;
     });
   };
 
@@ -270,21 +237,15 @@ function AttendanceTimeSetupPage() {
           const dayName =
             weekDays[current.getDay() === 0 ? 6 : current.getDay() - 1];
           const rule = rules.find((r) => r.day === dayName);
-          
           if (rule) {
-            const dateStr = current.toISOString().split("T")[0];
-            const isHolidayDate = isHoliday(dateStr);
-            
             finalSchedule.push({
               id: Date.now() + Math.random(),
               className: cls,
-              date: dateStr,
+              date: current.toISOString().split("T")[0],
               day: dayName,
               ...rule,
-              isOff: isHolidayDate || rule.isOff, // Mark as off if it's a holiday
               editable: true,
               setupId: id,
-              isHoliday: isHolidayDate // Add flag to identify holiday dates
             });
           }
           current.setDate(current.getDate() + 1);
@@ -293,21 +254,13 @@ function AttendanceTimeSetupPage() {
     });
 
     if (finalSchedule.length === 0) {
-      showStatus("No valid schedule found. Please set rules first.", "error");
+      alert("No valid schedule found. Please set rules first.");
       return;
     }
 
-    // Count holiday dates
-    const holidayCount = finalSchedule.filter(item => item.isHoliday).length;
-    
     setSchedule(finalSchedule);
     setShowSchedule(true);
-    
-    if (holidayCount > 0) {
-      showStatus(`Final schedule generated with ${holidayCount} holiday dates automatically marked as off!`, "success");
-    } else {
-      showStatus("Final schedule generated!", "success");
-    }
+    alert("Final schedule generated! You can now customize individual dates.");
   };
 
   const handleScheduleTimeChange = (index, field, value) => {
@@ -328,7 +281,6 @@ function AttendanceTimeSetupPage() {
       "Out From",
       "Out To",
       "Off",
-      "Holiday",
     ];
     const csvContent = [
       headers.join(","),
@@ -342,7 +294,6 @@ function AttendanceTimeSetupPage() {
           row.outStart,
           row.outEnd,
           row.isOff ? "Yes" : "No",
-          row.isHoliday ? "Yes" : "No",
         ].join(",")
       ),
     ].join("\n");
@@ -356,13 +307,10 @@ function AttendanceTimeSetupPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showStatus("Schedule downloaded as CSV", "success");
   };
 
   return (
     <div className="p-6 space-y-6 bg-gray-800 text-white min-h-screen">
-      <StatusMessage status={status} setStatus={setStatus} loading={loading} />
-      
       <h2 className="text-xl font-bold">Set Attendance Time & Rules</h2>
 
       {/* This should be the ONLY "Add Setup" button */}
@@ -377,7 +325,6 @@ function AttendanceTimeSetupPage() {
         onUpdateSetupName={updateSetupName}
         onDeleteSetup={(setupIndex) => {
           setSetups((prev) => prev.filter((_, idx) => idx !== setupIndex));
-          showStatus("Setup deleted", "success");
         }}
         onToggleClassDropdown={toggleClassDropdown}
         onToggleClass={toggleClass}

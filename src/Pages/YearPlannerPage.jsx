@@ -4,6 +4,7 @@ import HolidayActions from "../Components/YearPlanner/HolidayActions";
 import HolidayForm from "../Components/YearPlanner/HolidayForm";
 import HolidayTable from "../Components/YearPlanner/HolidayTable";
 import { StatusMessage } from "../Components/YearPlanner/StatusMessage";
+import { loadData, saveData } from "../utils/storage"; // ✅ using utils
 
 // Demo sessions
 const DEMO_SESSIONS = ["2024-25", "2025-26", "2026-27"];
@@ -20,14 +21,14 @@ export default function YearPlannerPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", start: "", end: "" });
 
-  // Load holidays from localStorage on mount
+  // ✅ Load holidays from localStorage on mount
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    setHolidays(stored);
+    setHolidays(loadData(STORAGE_KEY));
   }, []);
 
+  // ✅ Save holidays to localStorage
   const saveToStorage = (data) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    saveData(STORAGE_KEY, data);
     setHolidays(data);
   };
 
@@ -44,7 +45,6 @@ export default function YearPlannerPage() {
   };
 
   // CRUD operations using localStorage
-
   const addHoliday = ({ session, name, start, end }) => {
     if (!session || !name || !start || !end) return showStatus("Fill all fields", "error");
     const newHoliday = { id: Date.now(), session, name, start, end, active: true };
@@ -53,12 +53,14 @@ export default function YearPlannerPage() {
   };
 
   const toggleActive = (id) => {
-    const updated = holidays.map(h => h.id === id ? { ...h, active: !h.active } : h);
+    const updated = holidays.map((h) =>
+      h.id === id ? { ...h, active: !h.active } : h
+    );
     saveToStorage(updated);
   };
 
   const deleteHoliday = (id) => {
-    const updated = holidays.filter(h => h.id !== id);
+    const updated = holidays.filter((h) => h.id !== id);
     saveToStorage(updated);
     showStatus("Holiday deleted", "success");
   };
@@ -69,7 +71,9 @@ export default function YearPlannerPage() {
   };
 
   const saveEdit = (id) => {
-    const updated = holidays.map(h => h.id === id ? { ...h, ...editForm } : h);
+    const updated = holidays.map((h) =>
+      h.id === id ? { ...h, ...editForm } : h
+    );
     saveToStorage(updated);
     setEditingId(null);
     showStatus("Holiday updated", "success");
@@ -77,7 +81,7 @@ export default function YearPlannerPage() {
 
   const exportCSV = () => {
     const headers = ["Sl", "Holiday Name", "Session", "Start Date", "End Date", "Total Days"];
-    const activeHolidays = holidays.filter(h => h.active);
+    const activeHolidays = holidays.filter((h) => h.active);
     const csvContent = [
       headers.join(","),
       ...activeHolidays.map((h, i) => [
@@ -86,7 +90,7 @@ export default function YearPlannerPage() {
         `"${h.session}"`,
         h.start,
         h.end,
-        calcDays(h.start, h.end)
+        calcDays(h.start, h.end),
       ].join(","))
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -116,10 +120,11 @@ export default function YearPlannerPage() {
   };
 
   // Filtered holidays
-  const filtered = holidays.filter(h =>
-    searchTerm === "" ||
-    h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    h.session.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = holidays.filter(
+    (h) =>
+      searchTerm === "" ||
+      h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      h.session.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -132,7 +137,12 @@ export default function YearPlannerPage() {
       </div>
 
       <HolidayForm sessions={sessions} addHoliday={addHoliday} loading={loading} />
-      <HolidayActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} exportCSV={exportCSV} printTable={printTable} />
+      <HolidayActions
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        exportCSV={exportCSV}
+        printTable={printTable}
+      />
       <HolidayTable
         holidays={filtered}
         toggleActive={toggleActive}
@@ -147,7 +157,8 @@ export default function YearPlannerPage() {
 
       {filtered.length > 0 && (
         <div id="tableFooter" className="bg-gray-800 text-gray-200 p-4 text-center mt-2">
-          Total active holidays: {filtered.filter(h => h.active).length} | Total days: {filtered.filter(h => h.active).reduce((sum,h)=>sum+calcDays(h.start,h.end),0)}
+          Total active holidays: {filtered.filter((h) => h.active).length} | Total days:{" "}
+          {filtered.filter((h) => h.active).reduce((sum, h) => sum + calcDays(h.start, h.end), 0)}
         </div>
       )}
     </div>

@@ -110,7 +110,7 @@ export default function FinalSchedule({
                     </tr>
                   </thead>
                   <tbody>
-                    {uniqueDates.map((date, idx) => {
+                    {uniqueDates.map((date) => {
                       const row = filteredRows.find(r => r.date === date && !r.isDuplicated);
                       if (!row) return null;
                       
@@ -226,7 +226,7 @@ export default function FinalSchedule({
                       );
                     })}
 
-                    {duplicatedRowsForSetup.map((row, idx) => {
+                    {duplicatedRowsForSetup.map((row) => {
                       const scheduleIndex = schedule.findIndex(
                         (item) => item.id === row.id
                       );

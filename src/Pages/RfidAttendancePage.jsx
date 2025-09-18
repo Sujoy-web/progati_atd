@@ -4,6 +4,9 @@ import AttendanceCard from "../Components/RfidAttendance/AttendanceCard";
 import LoadingSpinner from "../Components/RfidAttendance/LoadingSpinner";
 import AttendanceModeToggle from "../Components/RfidAttendance/AttendanceModeToggle";
 import RfidInput from "../Components/RfidAttendance/RfidInput";
+import { loadData } from "../utils/storage";
+
+const STORAGE_KEY = "holidaysData";
 
 export default function RfidAttendancePage() {
   const [rfid, setRfid] = useState("");
@@ -13,30 +16,72 @@ export default function RfidAttendancePage() {
   const [activeStudents, setActiveStudents] = useState({});
   const [mode, setMode] = useState("in");
   const [todaySchedule, setTodaySchedule] = useState({});
+  const [holidays, setHolidays] = useState([]);
+  const [isHoliday, setIsHoliday] = useState(false);
 
   // Focus input
   useEffect(() => {
     inputRef.current?.focus();
   }, [attendance, mode]);
 
-  // Load today's schedule and set mode
+  // Load today's schedule, set mode, and check for holidays
   useEffect(() => {
     const schedule = getTodaySchedule();
     setTodaySchedule(schedule);
     const currentMode = getCurrentMode(schedule);
     setMode(currentMode);
+    
+    // Load holidays data
+    const holidayData = loadData(STORAGE_KEY) || [];
+    const activeHolidays = holidayData.filter(h => h.active);
+    setHolidays(activeHolidays);
+    
+    // Check if today is a holiday
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const isTodayHoliday = activeHolidays.some(holiday => {
+      const startDate = new Date(holiday.start);
+      const endDate = new Date(holiday.end);
+      return today >= startDate && today <= endDate;
+    });
+    
+    setIsHoliday(isTodayHoliday);
   }, []);
 
   const handleModeChange = () => {
+    if (isHoliday) {
+      setAttendance({ 
+        success: false, 
+        message: "Cannot change mode on a holiday" 
+      });
+      return;
+    }
+    
     // Cycle through modes: in -> late -> out -> in
     const modes = ["in", "late", "out"];
     const currentIndex = modes.indexOf(mode);
     const nextIndex = (currentIndex + 1) % modes.length;
     setMode(modes[nextIndex]);
+    
+    setAttendance({ 
+      success: true, 
+      message: `Mode changed to ${modes[nextIndex].toUpperCase()}` 
+    });
   };
 
   const handleScan = async (e) => {
     if (e.key !== "Enter" || !rfid.trim()) return;
+    
+    // Check if today is a holiday
+    if (isHoliday) {
+      setAttendance({ 
+        success: false, 
+        message: "Today is a holiday - Attendance not allowed" 
+      });
+      setRfid("");
+      return;
+    }
+    
     setLoading(true);
     setAttendance(null);
 
@@ -140,6 +185,12 @@ export default function RfidAttendancePage() {
 
   return (
     <div className="h-screen flex flex-col justify-center items-center bg-gradient-to-br from-gray-900 to-gray-700 p-6 relative">
+      {isHoliday && (
+        <div className="absolute top-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg font-semibold">
+          🎉 Today is a Holiday!
+        </div>
+      )}
+      
       <LoadingSpinner loading={loading} />
       <AttendanceCard attendance={attendance} />
       
@@ -150,6 +201,7 @@ export default function RfidAttendancePage() {
         setRfid={setRfid} 
         onScan={handleScan} 
         inputRef={inputRef} 
+        disabled={isHoliday}
       />
 
       <style jsx global>{`
