@@ -8,142 +8,100 @@ import StudentsTable from "../Components/Assign/StudentsTable";
 import SearchAndInput from "../Components/Assign/SearchAndInput";
 import FiltersBar from "../Components/Assign/FilterBar";
 
+// Storage utilities
+import { loadData, saveData } from "../utils/storage";
+
 const STORAGE_KEY = "rfidSimpleAssignments";
 
-// Dummy data (initial students list)
+// ================== Initial Student Data ==================
+// IDs restart from 1 for each class
 const initialStudents = [
-  {
-    id: "1",
-    name: "Alice",
-    roll: "01",
-    adm: "ADM001",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
-  {
-    id: "2",
-    name: "Bob",
-    roll: "02",
-    adm: "ADM002",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
-  {
-    id: "3",
-    name: "Charlie",
-    roll: "03",
-    adm: "ADM003",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
-  {
-    id: "4",
-    name: "Rohan",
-    roll: "04",
-    adm: "ADM00",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
-  {
-    id: "5",
-    name: "Sujoy",
-    roll: "05",
-    adm: "ADM005",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
-  {
-    id: "6",
-    name: "Arjun",
-    roll: "06",
-    adm: "ADM006",
-    class: "VI",
-    section: "A",
-    session: "2025-2026",
-    rfid: "",
-  },
+  // Class 1
+  { id: "1", name: "Alice", roll: "01", adm: "ADM001", class: "I", section: "A", session: "2025-2026", rfid: "" },
+  { id: "2", name: "Charlie", roll: "02", adm: "ADM002", class: "I", section: "B", session: "2025-2026", rfid: "" },
+
+  // Class 2
+  { id: "1", name: "Bob", roll: "01", adm: "ADM003", class: "II", section: "A", session: "2025-2026", rfid: "" },
+  { id: "2", name: "Rohan", roll: "02", adm: "ADM004", class: "II", section: "B", session: "2025-2026", rfid: "" },
+
+  // Class 3
+  { id: "1", name: "Sujoy", roll: "01", adm: "ADM005", class: "III", section: "A", session: "2025-2026", rfid: "" },
+  { id: "2", name: "Arjun", roll: "02", adm: "ADM006", class: "III", section: "B", session: "2025-2026", rfid: "" },
 ];
 
+// Helper: create unique key for each student
+const getUniqueId = (s) => `${s.class}-${s.section}-${s.id}`;
+
 export default function AssignPage() {
-  // ================== State variables ==================
+  // ================== State ==================
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
   const [sessions, setSessions] = useState([]);
+
   const [classSel, setClassSel] = useState("");
   const [sectionSel, setSectionSel] = useState("");
   const [sessionSel, setSessionSel] = useState("");
-
-  // Filter (assigned/unassigned/all)
   const [filter, setFilter] = useState("all");
 
-  // RFID handling
   const [rfid, setRfid] = useState("");
   const [status, setStatus] = useState(null);
 
-  // Search + selected student
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // Refs
   const inputRef = useRef(null);
   const searchRef = useRef(null);
 
   // ================== Effects ==================
-  // Load dropdowns (classes, sections, sessions)
+  // Load dropdown values
   useEffect(() => {
     setClasses([...new Set(initialStudents.map((s) => s.class))]);
     setSections([...new Set(initialStudents.map((s) => s.section))]);
     setSessions([...new Set(initialStudents.map((s) => s.session))]);
   }, []);
 
-  // Load students when dropdowns are selected
+  // Load students (apply filters OR show all if no filter)
   useEffect(() => {
-    if (!classSel || !sectionSel || !sessionSel) return;
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    const filtered = initialStudents
-      .filter(
-        (s) =>
-          s.class === classSel &&
-          s.section === sectionSel &&
-          s.session === sessionSel
-      )
-      .map((s) => {
-        const f = saved.find((x) => x.id === s.id);
-        return f ? { ...s, rfid: f.rfid } : s;
-      });
+    const saved = loadData(STORAGE_KEY, []);
+
+    let filtered = initialStudents.map((s) => {
+      const uniqueId = getUniqueId(s);
+      const f = saved.find((x) => x.uid === uniqueId);
+      return f ? { ...s, rfid: f.rfid } : s;
+    });
+
+    if (classSel) filtered = filtered.filter((s) => s.class === classSel);
+    if (sectionSel) filtered = filtered.filter((s) => s.section === sectionSel);
+    if (sessionSel) filtered = filtered.filter((s) => s.session === sessionSel);
+
     setStudents(filtered);
     setSelectedStudent(null);
   }, [classSel, sectionSel, sessionSel]);
 
-  // Auto focus on RFID input when dropdowns selected
   useEffect(() => {
-    if (classSel && sectionSel && sessionSel) inputRef.current?.focus();
+    if (classSel || sectionSel || sessionSel) inputRef.current?.focus();
   }, [classSel, sectionSel, sessionSel]);
 
-  // ================== Utility functions ==================
+  // ================== Utilities ==================
   const showStatus = (msg, type) => {
     setStatus({ msg, type });
     setTimeout(() => setStatus(null), 3000);
   };
 
-  const saveToStorage = (arr) =>
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  const saveToStorage = (arr) => {
+    const saveFormat = arr.map((s) => ({
+      uid: getUniqueId(s),
+      rfid: s.rfid,
+    }));
+    saveData(STORAGE_KEY, saveFormat);
+  };
 
-  // Assign RFID logic
+  // ================== Core Logic ==================
   const assignRfid = () => {
     if (!rfid.trim()) return showStatus("Scan RFID first", "error");
 
+    // RFID must be unique across all students
     if (students.some((s) => s.rfid === rfid.trim())) {
       setRfid("");
       inputRef.current?.focus();
@@ -152,17 +110,18 @@ export default function AssignPage() {
 
     if (selectedStudent) {
       const updated = students.map((s) =>
-        s.id === selectedStudent.id ? { ...s, rfid: rfid.trim() } : s
+        getUniqueId(s) === getUniqueId(selectedStudent) ? { ...s, rfid: rfid.trim() } : s
       );
       setStudents(updated);
       saveToStorage(updated);
+      showStatus(`RFID assigned to ${selectedStudent.name}`, "success");
       setRfid("");
       setSelectedStudent(null);
-      showStatus(`RFID assigned to ${selectedStudent.name}`, "success");
       inputRef.current?.focus();
       return;
     }
 
+    // Auto-assign to first unassigned student
     const idx = students.findIndex((s) => !s.rfid);
     if (idx < 0) {
       setRfid("");
@@ -174,22 +133,22 @@ export default function AssignPage() {
     updated[idx].rfid = rfid.trim();
     setStudents(updated);
     saveToStorage(updated);
-    setRfid("");
     showStatus(`RFID assigned to ${updated[idx].name}`, "success");
+    setRfid("");
     inputRef.current?.focus();
   };
 
-  // Remove RFID from student
-  const handleRemove = (id) => {
-    const student = students.find((s) => s.id === id);
-    const updated = students.map((s) => (s.id === id ? { ...s, rfid: "" } : s));
+  const handleRemove = (uid) => {
+    const student = students.find((s) => getUniqueId(s) === uid);
+    const updated = students.map((s) =>
+      getUniqueId(s) === uid ? { ...s, rfid: "" } : s
+    );
     setStudents(updated);
     saveToStorage(updated);
-    showStatus(`RFID removed from ${student.name}`, "success");
+    showStatus(`RFID removed from ${student?.name}`, "success");
     inputRef.current?.focus();
   };
 
-  // Select student by search term
   const selectFirstMatchingStudent = () => {
     if (!searchTerm.trim()) return;
     const found = students.find(
@@ -209,7 +168,6 @@ export default function AssignPage() {
     }
   };
 
-  // Select student by double clicking row
   const handleRowDoubleClick = (student) => {
     setSelectedStudent(student);
     showStatus(`Selected: ${student.name}`, "success");
@@ -232,7 +190,7 @@ export default function AssignPage() {
   // ================== JSX ==================
   return (
     <div className="p-6 bg-gray-900 min-h-screen text-gray-100">
-      {/* Status message popup */}
+      {/* Status message */}
       {status && (
         <div
           className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-3 ${
@@ -240,11 +198,7 @@ export default function AssignPage() {
           }`}
         >
           <div className="text-xl">
-            {status.type === "success" ? (
-              <FaCheckCircle />
-            ) : (
-              <FaExclamationTriangle />
-            )}
+            {status.type === "success" ? <FaCheckCircle /> : <FaExclamationTriangle />}
           </div>
           <p>{status.msg}</p>
           <button onClick={() => setStatus(null)} className="ml-2">
@@ -253,7 +207,7 @@ export default function AssignPage() {
         </div>
       )}
 
-      {/* FiltersBar Component */}
+      {/* Filters */}
       <FiltersBar
         classes={classes}
         sections={sections}
@@ -268,54 +222,52 @@ export default function AssignPage() {
         setFilter={setFilter}
       />
 
-      {classSel && sectionSel && sessionSel && (
-        <>
-          {/* SearchAndInput Component */}
-          <SearchAndInput
-            searchRef={searchRef}
-            inputRef={inputRef}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            clearSearch={() => {
-              setSearchTerm("");
+      {/* Content */}
+      <>
+        {/* Search + Input */}
+        <SearchAndInput
+          searchRef={searchRef}
+          inputRef={inputRef}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          clearSearch={() => {
+            setSearchTerm("");
+            setSelectedStudent(null);
+            searchRef.current?.focus();
+          }}
+          selectFirstMatchingStudent={selectFirstMatchingStudent}
+          rfid={rfid}
+          setRfid={setRfid}
+          assignRfid={assignRfid}
+        />
+
+        {/* Selected card */}
+        {selectedStudent && (
+          <SelectedStudentCard
+            student={selectedStudent}
+            clear={() => {
               setSelectedStudent(null);
-              searchRef.current?.focus();
+              inputRef.current?.focus();
             }}
-            selectFirstMatchingStudent={selectFirstMatchingStudent}
-            rfid={rfid}
-            setRfid={setRfid}
-            assignRfid={assignRfid}
           />
+        )}
 
-          {/* SelectedStudentCard Component */}
-          {selectedStudent && (
-            <SelectedStudentCard
-              student={selectedStudent}
-              clear={() => {
-                setSelectedStudent(null);
-                inputRef.current?.focus();
-              }}
-            />
-          )}
+        {/* Info */}
+        <div className="max-w-6xl mx-auto mb-3">
+          <p className="text-sm text-gray-400">
+            Showing {filtered.length} of {students.length} students
+            {searchTerm && ` matching "${searchTerm}"`} | Double-click to select
+          </p>
+        </div>
 
-          {/* Info line */}
-          <div className="max-w-6xl mx-auto mb-3">
-            <p className="text-sm text-gray-400">
-              Showing {filtered.length} of {students.length} students
-              {searchTerm && ` matching "${searchTerm}"`} | Double-click to
-              select
-            </p>
-          </div>
-
-          {/* StudentsTable Component */}
-          <StudentsTable
-            students={filtered}
-            selectedStudent={selectedStudent}
-            handleRowDoubleClick={handleRowDoubleClick}
-            handleRemove={handleRemove}
-          />
-        </>
-      )}
+        {/* Table */}
+        <StudentsTable
+          students={filtered}
+          selectedStudent={selectedStudent}
+          handleRowDoubleClick={handleRowDoubleClick}
+          handleRemove={(student) => handleRemove(getUniqueId(student))}
+        />
+      </>
     </div>
   );
 }

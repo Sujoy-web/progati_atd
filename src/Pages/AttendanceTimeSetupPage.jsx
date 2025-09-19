@@ -4,9 +4,13 @@ import SetupList from "../components/AttendanceTimeSetup/SetupList";
 import FinalSchedule from "../components/AttendanceTimeSetup/FinalSchedule";
 import SetupActions from "../components/AttendanceTimeSetup/SetupActions";
 import { StatusMessage } from "../Components/YearPlanner/StatusMessage";
-import { loadData } from "../utils/storage";
+import { loadData, saveData } from "../utils/storage";
 
 const STORAGE_KEY = "holidaysData";
+const SCHEDULE_STORAGE_KEY = "attendanceSchedule";
+const SETUPS_STORAGE_KEY = "attendanceSetups";
+const RFID_STORAGE_KEY = "rfidSimpleAssignments"; // Key for RFID assignments
+
 const weekDays = [
   "Monday",
   "Tuesday",
@@ -15,15 +19,6 @@ const weekDays = [
   "Friday",
   "Saturday",
   "Sunday",
-];
-
-const availableClasses = [
-  "Class 1",
-  "Class 2",
-  "Class 3",
-  "Class 4",
-  "Class 5",
-  "Class 6",
 ];
 
 function AttendanceTimeSetupPage() {
@@ -36,12 +31,75 @@ function AttendanceTimeSetupPage() {
   const [holidays, setHolidays] = useState([]);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [availableClasses, setAvailableClasses] = useState([]); // Load classes from storage
 
-  // Load holidays from localStorage
+  // Load holidays, saved schedule, saved setups, and available classes from localStorage
   useEffect(() => {
     const holidayData = loadData(STORAGE_KEY) || [];
     setHolidays(holidayData.filter(h => h.active));
+    
+    // Load saved schedule if it exists
+    const savedSchedule = loadData(SCHEDULE_STORAGE_KEY) || [];
+    if (savedSchedule.length > 0) {
+      setSchedule(savedSchedule);
+      setShowSchedule(true);
+    }
+    
+    // Load saved setups if they exist
+    const savedSetups = loadData(SETUPS_STORAGE_KEY) || [];
+    if (savedSetups.length > 0) {
+      setSetups(savedSetups);
+      showStatus("Loaded saved setups", "success");
+    }
+
+    // Load available classes from RFID storage
+    loadAvailableClasses();
   }, []);
+
+  // Load classes from RFID assignments storage
+  const loadAvailableClasses = () => {
+    const rfidData = loadData(RFID_STORAGE_KEY, []);
+    
+    // If we have RFID data, extract unique classes
+    if (rfidData.length > 0) {
+      const classesFromRfid = [...new Set(rfidData.map(item => {
+        // Extract class from uid format: "class-section-id"
+        const parts = item.uid.split('-');
+        return parts[0]; // First part is the class
+      }))].sort();
+      
+      setAvailableClasses(classesFromRfid);
+      showStatus(`Loaded ${classesFromRfid.length} classes from RFID assignments`, "success");
+    } else {
+      // Fallback to initial students if no RFID data exists yet
+      const initialStudents = [
+        { id: "1", name: "Alice", roll: "01", adm: "ADM001", class: "I", section: "A", session: "2025-2026", rfid: "" },
+        { id: "2", name: "Charlie", roll: "02", adm: "ADM002", class: "I", section: "B", session: "2025-2026", rfid: "" },
+        { id: "1", name: "Bob", roll: "01", adm: "ADM003", class: "II", section: "A", session: "2025-2026", rfid: "" },
+        { id: "2", name: "Rohan", roll: "02", adm: "ADM004", class: "II", section: "B", session: "2025-2026", rfid: "" },
+        { id: "1", name: "Sujoy", roll: "01", adm: "ADM005", class: "III", section: "A", session: "2025-2026", rfid: "" },
+        { id: "2", name: "Arjun", roll: "02", adm: "ADM006", class: "III", section: "B", session: "2025-2026", rfid: "" },
+      ];
+      
+      const classesFromInitial = [...new Set(initialStudents.map(s => s.class))].sort();
+      setAvailableClasses(classesFromInitial);
+      showStatus(`Using default classes (no RFID data found)`, "info");
+    }
+  };
+
+  // Save setups to localStorage whenever they change
+  useEffect(() => {
+    if (setups.length > 0) {
+      saveData(SETUPS_STORAGE_KEY, setups);
+    }
+  }, [setups]);
+
+  // Save schedule to localStorage whenever it changes
+  useEffect(() => {
+    if (schedule.length > 0) {
+      saveData(SCHEDULE_STORAGE_KEY, schedule);
+    }
+  }, [schedule]);
 
   const showStatus = (msg, type) => {
     setStatus({ msg, type });
@@ -56,19 +114,22 @@ function AttendanceTimeSetupPage() {
   };
 
   const addSetup = () => {
-    setSetups((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: `Setup ${prev.length + 1}`,
-        selectedClasses: [],
-        fromDate: "",
-        toDate: "",
-        rules: [],
-        generated: false,
-        expanded: true,
-      },
-    ]);
+    setSetups((prev) => {
+      const newSetups = [
+        ...prev,
+        {
+          id: Date.now(),
+          name: `Setup ${prev.length + 1}`,
+          selectedClasses: [],
+          fromDate: "",
+          toDate: "",
+          rules: [],
+          generated: false,
+          expanded: true,
+        },
+      ];
+      return newSetups;
+    });
     showStatus("New setup added", "success");
   };
 
@@ -359,13 +420,96 @@ function AttendanceTimeSetupPage() {
     showStatus("Schedule downloaded as CSV", "success");
   };
 
+  // Clear all setups data
+  const clearSetups = () => {
+    if (window.confirm("Are you sure you want to clear all setups? This cannot be undone.")) {
+      setSetups([]);
+      saveData(SETUPS_STORAGE_KEY, []);
+      showStatus("All setups cleared", "success");
+    }
+  };
+
+  // Clear all schedule data
+  const clearSchedule = () => {
+    if (window.confirm("Are you sure you want to clear all schedule data? This cannot be undone.")) {
+      setSchedule([]);
+      setShowSchedule(false);
+      saveData(SCHEDULE_STORAGE_KEY, []);
+      showStatus("Schedule cleared", "success");
+    }
+  };
+
+  // Clear everything
+  const clearAll = () => {
+    if (window.confirm("Are you sure you want to clear ALL data (setups and schedule)? This cannot be undone.")) {
+      setSetups([]);
+      setSchedule([]);
+      setShowSchedule(false);
+      saveData(SETUPS_STORAGE_KEY, []);
+      saveData(SCHEDULE_STORAGE_KEY, []);
+      showStatus("All data cleared", "success");
+    }
+  };
+
+  // Refresh classes from RFID storage
+  const refreshClasses = () => {
+    loadAvailableClasses();
+    showStatus("Classes refreshed from RFID data", "success");
+  };
+
   return (
     <div className="p-6 space-y-6 bg-gray-800 text-white min-h-screen">
       <StatusMessage status={status} setStatus={setStatus} loading={loading} />
       
-      <h2 className="text-xl font-bold">Set Attendance Time & Rules</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">Set Attendance Time & Rules</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={refreshClasses}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+            title="Refresh classes from RFID assignments"
+          >
+            🔄 Refresh Classes
+          </button>
+          {setups.length > 0 && (
+            <button
+              onClick={clearSetups}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Clear Setups
+            </button>
+          )}
+          {schedule.length > 0 && (
+            <button
+              onClick={clearSchedule}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Clear Schedule
+            </button>
+          )}
+          {(setups.length > 0 || schedule.length > 0) && (
+            <button
+              onClick={clearAll}
+              className="bg-red-800 hover:bg-red-900 text-white px-3 py-1 rounded text-sm"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+      </div>
 
-      {/* This should be the ONLY "Add Setup" button */}
+      {/* Class information */}
+      <div className="bg-gray-700 p-3 rounded">
+        <p className="text-sm">
+          <strong>Available Classes:</strong> {availableClasses.length > 0 
+            ? availableClasses.join(", ") 
+            : "No classes found. Please add RFID assignments first."}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          Classes are automatically loaded from RFID assignments storage
+        </p>
+      </div>
+
       <SetupActions onAddSetup={addSetup} />
 
       <SetupList
@@ -403,12 +547,14 @@ function AttendanceTimeSetupPage() {
             {showSchedule ? "Hide Final Schedule" : "Show Final Schedule"}
           </button>
           {schedule.length > 0 && (
-            <button
-              onClick={downloadExcel}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-            >
-              📥 Download as Excel
-            </button>
+            <>
+              <button
+                onClick={downloadExcel}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                📥 Download as Excel
+              </button>
+            </>
           )}
         </div>
       )}

@@ -21,8 +21,8 @@ export default function StudentsTable({ students, selectedStudent, handleRowDoub
           {students.length > 0 ? (
             students.map((s, i) => (
               <tr
-                key={s.id}
-                className={`border-t border-gray-700 hover:bg-gray-800/50 ${selectedStudent?.id === s.id ? "bg-blue-900/20" : ""}`}
+                key={`${s.class}-${s.section}-${s.id}`}
+                className={`border-t border-gray-700 hover:bg-gray-800/50 ${selectedStudent && selectedStudent.id === s.id && selectedStudent.class === s.class && selectedStudent.section === s.section ? "bg-blue-900/20" : ""}`}
                 onDoubleClick={() => handleRowDoubleClick(s)}
               >
                 <td className="p-3">{i + 1}</td>
@@ -41,7 +41,7 @@ export default function StudentsTable({ students, selectedStudent, handleRowDoub
                 </td>
                 <td className="p-3 text-center">
                   {s.rfid && (
-                    <button onClick={() => handleRemove(s.id)} className="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs flex gap-1 mx-auto">
+                    <button onClick={() => handleRemove(s)} className="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs flex gap-1 mx-auto">
                       <FaTrash /> Remove
                     </button>
                   )}
